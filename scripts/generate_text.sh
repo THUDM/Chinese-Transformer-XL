@@ -20,9 +20,7 @@ script_dir=$(dirname $script_path)
 config_json="$script_dir/ds_config.json"
 
 MASTER_PORT=${MASTER_PORT} python generate_samples.py \
-       --deepspeed \
        --model-parallel-size $MPSIZE \
-       --deepspeed_config ${config_json} \
        --num-layers $NLAYERS \
        --hidden-size $NHIDDEN \
        --load $CHECKPOINT_PATH \

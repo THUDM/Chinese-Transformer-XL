@@ -20,10 +20,8 @@ USE_TORCH_DDP = True
 
 from datetime import datetime
 import os
-import random
 import math
 from filelock import FileLock
-import numpy as np
 import torch
 
 import deepspeed
@@ -36,18 +34,13 @@ from learning_rates import AnnealingLR
 from model import GPT2Model
 from model import gpt2_get_params_for_weight_decay_optimization
 
-if USE_TORCH_DDP:
-    from model import PyTorchDistributedDataParallel as DDP
-else:
-    from model import DistributedDataParallel as DDP
 import mpu
 from apex.optimizers import FusedAdam as Adam
-from utils import Timers
+from utils import Timers, set_random_seed
 from utils import save_checkpoint
 from utils import load_checkpoint
 from utils import report_memory
 from utils import print_args
-from utils import print_params_min_max_norm
 from utils import print_rank_0
 from utils import get_sample_writer
 import torch.distributed as dist
@@ -647,16 +640,6 @@ def initialize_distributed(args):
     #
     if hasattr(args, "deepspeed") and args.deepspeed and args.deepspeed_activation_checkpointing:
         set_deepspeed_activation_checkpointing(args)
-
-
-def set_random_seed(seed):
-    """Set random seed for reproducability."""
-
-    if seed is not None and seed > 0:
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        mpu.model_parallel_cuda_manual_seed(seed)
 
 
 def get_train_val_test_data(args):

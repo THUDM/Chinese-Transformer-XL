@@ -18,7 +18,6 @@
 import argparse
 import os
 import torch
-import deepspeed
 import json
 
 
@@ -330,7 +329,11 @@ def get_args():
     parser = add_data_args(parser)
 
     # Include DeepSpeed configuration arguments
-    parser = deepspeed.add_config_arguments(parser)
+    try:
+        import deepspeed
+        parser = deepspeed.add_config_arguments(parser)
+    except ModuleNotFoundError:
+        pass
 
     args = parser.parse_args()
     if not args.train_data and not args.train_data_path:

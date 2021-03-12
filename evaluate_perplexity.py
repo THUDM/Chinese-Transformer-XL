@@ -24,9 +24,8 @@ import argparse
 import time
 from datetime import datetime
 from arguments import get_args
-from utils import Timers
+from utils import Timers, set_random_seed
 from pretrain_gpt2 import initialize_distributed
-from pretrain_gpt2 import set_random_seed
 from pretrain_gpt2 import get_train_val_test_data
 from pretrain_gpt2 import get_masks_and_position_ids
 from utils import load_checkpoint, get_checkpoint_iteration

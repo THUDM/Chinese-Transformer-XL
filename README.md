@@ -20,15 +20,9 @@ Under construction
 
 可以看到相比起CPM，"文汇"更接近人类所写的高赞答案。
 ## 安装
-首先根据`requirements.txt`安装pytorch等基础依赖
+根据`requirements.txt`安装pytorch等基础依赖
 ```shell
 pip install -r requirements.txt
-```
-然后安装[APEX](https://github.com/NVIDIA/apex#quick-start) 以支持`FusedLayerNorm`和`FusedAdam`
-```shell
-git clone https://github.com/NVIDIA/apex
-cd apex
-pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 ```
 
 ## 使用

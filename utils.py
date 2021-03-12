@@ -426,3 +426,13 @@ def move_weights(our, oai, dst2src=False):
 
     for our_layer, oai_layer in zip(our.transformer.layers, oai.transformer.h):
         load_transformer_layer(our_layer, oai_layer, dst2src)
+
+
+def set_random_seed(seed):
+    """Set random seed for reproducability."""
+
+    if seed is not None and seed > 0:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        mpu.model_parallel_cuda_manual_seed(seed)

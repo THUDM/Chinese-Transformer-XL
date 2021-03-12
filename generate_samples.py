@@ -25,22 +25,156 @@ import argparse
 import time
 from datetime import datetime
 from arguments import get_args
-from utils import Timers
-from pretrain_gpt2 import initialize_distributed
-from pretrain_gpt2 import set_random_seed
-from pretrain_gpt2 import get_train_val_test_data
-from pretrain_gpt2 import get_masks_and_position_ids
+from utils import Timers, set_random_seed
 from utils import load_checkpoint, get_checkpoint_iteration
 from data_utils import make_tokenizer
 from configure_data import configure_data
 import mpu
-import deepspeed
 
 from fp16 import FP16_Module
 from model import GPT2Model
-from model import DistributedDataParallel as DDP
 from utils import print_rank_0
-from pretrain_gpt2 import get_model
+
+USE_TORCH_DDP = True
+
+
+def get_model(args):
+    """Build the model."""
+
+    print_rank_0('building GPT2 model ...')
+    model = GPT2Model(num_layers=args.num_layers,
+                      vocab_size=args.vocab_size,
+                      hidden_size=args.hidden_size,
+                      num_attention_heads=args.num_attention_heads,
+                      embedding_dropout_prob=args.hidden_dropout,
+                      attention_dropout_prob=args.attention_dropout,
+                      output_dropout_prob=args.hidden_dropout,
+                      max_sequence_length=args.max_position_embeddings,
+                      max_memory_length=args.mem_length,
+                      checkpoint_activations=args.checkpoint_activations,
+                      checkpoint_num_layers=args.checkpoint_num_layers,
+                      parallel_output=True,
+                      relative_encoding=args.transformer_xl)
+
+    if mpu.get_data_parallel_rank() == 0:
+        print(' > number of parameters on model parallel rank {}: {}'.format(
+            mpu.get_model_parallel_rank(),
+            sum([p.nelement() for p in model.parameters()])), flush=True)
+
+    # To prevent OOM for model sizes that cannot fit in GPU memory in full precision
+    if hasattr(args, "deepspeed") and args.deepspeed and args.fp16:
+        model.half()
+
+    # GPU allocation.
+    model.cuda(torch.cuda.current_device())
+
+    # Fp16 conversion.
+    if args.fp16:
+        model = FP16_Module(model)
+
+    # Wrap model for distributed training.
+    if USE_TORCH_DDP:
+        from model import PyTorchDistributedDataParallel as DDP
+        i = torch.cuda.current_device()
+        model = DDP(model, device_ids=[i], output_device=i,
+                    process_group=mpu.get_data_parallel_group())
+    else:
+        from model import DistributedDataParallel as DDP
+        model = DDP(model)
+
+    return model
+
+
+def get_masks_and_position_ids(data,
+                               eod_token,
+                               reset_position_ids,
+                               reset_attention_mask,
+                               loss_mask=None,
+                               attention_mask=None,
+                               transformer_xl=False,
+                               mem_length=None):
+    # Extract batch size and sequence length.
+    batch_size, seq_length = data.size()
+
+    # Attention mask (lower triangular).
+    if transformer_xl:
+        if attention_mask is None:
+            attention_mask = torch.ones((1, seq_length, seq_length + mem_length), device=data.device)
+        attention_mask = torch.tril(torch.triu(attention_mask, 1 - seq_length + mem_length), mem_length)
+    else:
+        if reset_attention_mask:
+            att_mask_batch = batch_size
+        else:
+            att_mask_batch = 1
+        if attention_mask is None:
+            attention_mask = torch.ones((att_mask_batch, seq_length, seq_length), device=data.device)
+        attention_mask = torch.tril(attention_mask)
+    attention_mask = attention_mask.unsqueeze(1)
+
+    # Loss mask.
+    if loss_mask is None:
+        loss_mask = torch.ones(data.size(), dtype=torch.float, device=data.device)
+
+    # Position ids.
+    position_ids = torch.arange(seq_length, dtype=torch.long,
+                                device=data.device)
+    position_ids = position_ids.unsqueeze(0).expand_as(data)
+    if not transformer_xl:
+        loss_mask[data == eod_token] = 0.0
+        # We need to clone as the ids will be modifed based on batch index.
+        if reset_position_ids:
+            position_ids = position_ids.clone()
+
+        if reset_position_ids or reset_attention_mask:
+            # Loop through the batches:
+            for b in range(batch_size):
+
+                # Find indecies where EOD token is.
+                eod_index = position_ids[b, data[b] == eod_token]
+                # Detach indecies from positions if going to modify positions.
+                if reset_position_ids:
+                    eod_index = eod_index.clone()
+
+                # Loop through EOD indecies:
+                prev_index = 0
+                for j in range(eod_index.size()[0]):
+                    i = eod_index[j]
+                    # Mask attention loss.
+                    if reset_attention_mask:
+                        attention_mask[b, 0, (i + 1):, :(i + 1)] = 0
+                    # Reset positions.
+                    if reset_position_ids:
+                        position_ids[b, (i + 1):] -= (i + 1 - prev_index)
+                        prev_index = i + 1
+
+    return attention_mask, loss_mask, position_ids
+
+
+def initialize_distributed(args):
+    """Initialize torch.distributed."""
+
+    # Manually set the device ids.
+    device = args.rank % torch.cuda.device_count()
+    if args.local_rank is not None:
+        device = args.local_rank
+    torch.cuda.set_device(device)
+    # Call the init process
+    init_method = 'tcp://'
+    master_ip = os.getenv('MASTER_ADDR', 'localhost')
+    master_port = os.getenv('MASTER_PORT', '6000')
+    init_method += master_ip + ':' + master_port
+    torch.distributed.init_process_group(
+        backend=args.distributed_backend,
+        world_size=args.world_size, rank=args.rank,
+        init_method=init_method)
+
+    # Set the model-parallel / data-parallel communicators.
+    mpu.initialize_model_parallel(args.model_parallel_size)
+
+    # Optional DeepSpeed Activation Checkpointing Features
+    #
+    if hasattr(args, "deepspeed") and args.deepspeed and args.deepspeed_activation_checkpointing:
+        set_deepspeed_activation_checkpointing(args)
 
 
 def setup_model(args):
@@ -219,7 +353,8 @@ def generate_samples(model, tokenizer, args, device):
             if terminate_runs == 1:
                 return
             start_time = time.time()
-            output_tokens_list, _ = sample_sequence(model, tokenizer, context_tokens_tensor, context_length, args, device)
+            output_tokens_list, _ = sample_sequence(model, tokenizer, context_tokens_tensor, context_length, args,
+                                                    device)
             if args.hierarchical:
                 eop_token = tokenizer.get_command('eop').Id
                 if output_tokens_list[-1] == eop_token:
@@ -299,6 +434,7 @@ def main():
 
     # Arguments.
     args = get_args()
+    args.deepspeed = False
     args.mem_length = args.seq_length + args.mem_length - 1
 
     # Pytorch distributed.

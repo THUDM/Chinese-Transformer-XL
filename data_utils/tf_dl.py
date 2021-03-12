@@ -18,6 +18,9 @@ import queue
 import threading
 
 import tensorflow as tf
+
+import utils
+
 tf.enable_eager_execution()
 import torch
 import numpy as np
@@ -25,7 +28,7 @@ import numpy as np
 class TFRecordDataLoader(object):
     def __init__(self, records, batch_size, max_seq_len, max_preds_per_seq, train, num_workers=2, seed=1, threaded_dl=False):
         assert max_preds_per_seq is not None, "--max-preds-per-seq MUST BE SPECIFIED when using tfrecords"
-        tf.set_random_seed(seed)
+        utils.set_random_seed(seed)
         if isinstance(records, str):
             records  = [records]
 
