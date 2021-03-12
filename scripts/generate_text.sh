@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CHECKPOINT_PATH=/data/checkpoints/txl-2.8b11-20-15-10
+CHECKPOINT_PATH=$1
 MPSIZE=1
 NLAYERS=32
 NHIDDEN=2560
