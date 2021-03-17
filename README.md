@@ -1,7 +1,7 @@
 # Chinese-Transformer-XL
 Under construction 
 
-本项目提供了智源研究院"文汇"预训练模型Chinese-Transformer-XL的预训练和文本生成代码。[[应用主页]](https://gpt-3.aminer.cn/)
+本项目提供了智源研究院"文汇"预训练模型Chinese-Transformer-XL的预训练和文本生成代码。[[应用主页]](https://gpt-3.aminer.cn/) [[模型下载]](http://dorc-model-team.ks3-cn-beijing.ksyun.com/ren-zhi/my-model/mp_rank_00_model_states.pt)
 
 ## 数据
 本模型使用了智源研究院发布的中文预训练语料[WuDaoCorpus](https://data.baai.ac.cn/data-set-details/0c8dc71dd06ae75a10ca422fb49b0751) 。具体地，我们使用了WuDaoCorpus中来自百度百科+搜狗百科（133G）、知乎（131G）、百度知道（38G）的语料，一共303GB数据。
@@ -26,16 +26,14 @@ pip install -r requirements.txt
 ```
 
 ## 使用
-首先下载模型的checkpoint，目录结构如下
+首先下载模型的[checkpoint](http://dorc-model-team.ks3-cn-beijing.ksyun.com/ren-zhi/my-model/mp_rank_00_model_states.pt) ，目录结构如下
 ```
 .
 └─ txl-2.9B
-       ├─ 160000
-       │    └─ mp_rank_00_model_states.pt
-       └─ latest_checkpointed_iteration.txt
+       └─ mp_rank_00_model_states.pt
 ```
 然后运行交互式生成脚本
 ```shell
-bash scripts/generate_text.sh /path/to/checkpoint
+bash scripts/generate_text.sh ./txl-2.9B
 ```
 ## 引用
