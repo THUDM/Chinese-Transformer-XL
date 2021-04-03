@@ -15,9 +15,9 @@ HOST_FILE_PATH="/root/code/config/pre_hostfile"
 #HOST_FILE_PATH="/workspace/hostfile"
 
 
-config_json="$script_dir/ds_config_29B.json"
+config_json="$script_dir/ds_config_2.9B.json"
 gpt_options=" \
-       --experiment-name txl-2.8b \
+       --experiment-name txl-2.9b \
        --model-parallel-size ${MP_SIZE} \
        --num-layers 32 \
        --hidden-size 2560 \
