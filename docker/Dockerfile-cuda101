@@ -198,7 +198,6 @@ EXPOSE 8888
 ## Add deepspeed user
 ###############################################################################
 # Add a deepspeed user with user id 1001
-RUN echo 'root:baai2020keg' | chpasswd
 #RUN useradd --create-home --uid 1001 --shell /bin/bash deepspeed
 #RUN echo 'deepspeed:baai2020keg' | chpasswd
 #RUN usermod -aG sudo deepspeed
