@@ -114,6 +114,14 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
                                        init_method=output_layer_init_method)
         self.output_dropout = torch.nn.Dropout(output_dropout_prob)
 
+        try:
+            import deepspeed
+            if deepspeed.checkpointing.is_configured():
+                global get_cuda_rng_tracker, checkpoint
+                get_cuda_rng_tracker = deepspeed.checkpointing.get_cuda_rng_tracker
+                checkpoint = deepspeed.checkpointing.checkpoint
+        except ImportError:
+            pass
 
     def _transpose_for_scores(self, tensor):
         """Transpose a 3D tensor [b, s, np*hn] into a 4D tensor with
@@ -503,6 +511,15 @@ class GPT2ParallelTransformer(torch.nn.Module):
         # Final layer norm before output.
         self.final_layernorm = LayerNorm(hidden_size, eps=layernorm_epsilon)
 
+        try:
+            import deepspeed
+            if deepspeed.checkpointing.is_configured():
+                global get_cuda_rng_tracker, checkpoint
+                get_cuda_rng_tracker = deepspeed.checkpointing.get_cuda_rng_tracker
+                checkpoint = deepspeed.checkpointing.checkpoint
+        except ImportError:
+            pass
+
     def forward(self, hidden_states, position_ids, attention_mask, *mems):
         batch_size, query_length = hidden_states.size()[:2]
         memory_length = mems[0].size(1) if mems else 0
@@ -633,6 +650,15 @@ class BertParallelSelfAttention(torch.nn.Module):
         # different outputs on different number of parallel partitions but
         # on average it should not be partition dependent.
         self.dropout = torch.nn.Dropout(dropout_prob)
+
+        try:
+            import deepspeed
+            if deepspeed.checkpointing.is_configured():
+                global get_cuda_rng_tracker, checkpoint
+                get_cuda_rng_tracker = deepspeed.checkpointing.get_cuda_rng_tracker
+                checkpoint = deepspeed.checkpointing.checkpoint
+        except ImportError:
+            pass
 
 
     def _transpose_for_scores(self, tensor):

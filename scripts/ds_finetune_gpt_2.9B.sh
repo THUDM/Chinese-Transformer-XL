@@ -10,11 +10,12 @@ script_path=$(realpath $0)
 script_dir=$(dirname $script_path)
 
 OPTIONS_NCCL="NCCL_DEBUG=info NCCL_IB_DISABLE=0 NCCL_NET_GDR_LEVEL=0"
-HOST_FILE_PATH="/root/code/config/hostfile"
+HOST_FILE_PATH="/root/code/config/pre_hostfile"
 
 
-config_json="$script_dir/ds_config_2.9B.json"
+config_json="$script_dir/ds_config_2.9B_finetune.json"
 gpt_options=" \
+       --finetune \
        --experiment-name txl-2.9b \
        --model-parallel-size ${MP_SIZE} \
        --num-layers 32 \
@@ -27,7 +28,7 @@ gpt_options=" \
        --no-load-optim \
        --save ./checkpoints \
        --save-interval 2000 \
-       --train-iters 300000 \
+       --train-iters 10000 \
        --resume-dataloader \
        --train-data ${2} \
        --lazy-loader \
@@ -35,9 +36,9 @@ gpt_options=" \
        --split 949,50,1 \
        --distributed-backend nccl \
        --lr-decay-style cosine \
-       --lr-decay-ratio 0.1 \
-       --lr-decay-iters 300000 \
-       --warmup .01 \
+       --lr-decay-ratio 0.01 \
+       --lr-decay-iters 10000 \
+       --warmup .1 \
        --checkpoint-activations \
        --deepspeed-activation-checkpointing \
        --transformer-xl \
@@ -49,7 +50,7 @@ gpt_options="${gpt_options}
 "
 
 
-run_cmd="${OPTIONS_NCCL} deepspeed --num_nodes ${NUM_WORKERS} --num_gpus ${NUM_GPUS_PER_WORKER} --hostfile ${HOST_FILE_PATH} pretrain_gpt2.py $@ ${gpt_options}"
+run_cmd="${OPTIONS_NCCL} deepspeed --num_nodes ${NUM_WORKERS} --num_gpus ${NUM_GPUS_PER_WORKER} --hostfile ${HOST_FILE_PATH} pretrain_gpt2.py ${gpt_options}"
 echo ${run_cmd}
 eval ${run_cmd}
 

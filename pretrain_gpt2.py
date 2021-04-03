@@ -34,6 +34,10 @@ from learning_rates import AnnealingLR
 from model import GPT2Model
 from model import gpt2_get_params_for_weight_decay_optimization
 
+if USE_TORCH_DDP:
+    from model import PyTorchDistributedDataParallel as DDP
+else:
+    from model import DistributedDataParallel as DDP
 import mpu
 from apex.optimizers import FusedAdam as Adam
 from utils import Timers, set_random_seed
@@ -719,8 +723,7 @@ def main():
     model, optimizer, lr_scheduler = setup_model_and_optimizer(args)
 
     if args.load is not None:
-        with FileLock("./checkpoint_lock", timeout=-1):
-            args.iteration = load_checkpoint(model, optimizer, lr_scheduler, args)
+        args.iteration = load_checkpoint(model, optimizer, lr_scheduler, args)
     else:
         args.iteration = 0
     torch.distributed.barrier()

@@ -333,7 +333,7 @@ class wikipedia(PromptReader):
 
 
 def get_finetune_dataset(path):
-    class FinetuneDataset(PromptDataset):
+    class FinetuneDataset(PromptReader):
         PATH = path
         assert_str = f"File not exists at {PATH}"
 

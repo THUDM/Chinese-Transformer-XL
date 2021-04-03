@@ -95,6 +95,8 @@ def get_dataset(name, tokenizer, pre_tokenize, local_rank):
         text = corpora.KeyDataset(mask_loader=masks, text_loader=texts, tokenizer=tokenizer,
                                   to_tokenize=not pre_tokenize)
         return text
+    else:
+        raise NotImplementedError
 
 
 def supported_corpus(corpus_name):
