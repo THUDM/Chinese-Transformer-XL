@@ -276,7 +276,7 @@ def get_batch(data_iterator, args, timers):
     shard reset mask of the same dimensions is also returned.
     '''
     # Items and their type.
-    keys = ['text', 'target', 'loss_mask', 'attention_mask'] if args.transformer_xl else ['text', 'loss_mask']
+    keys = ['text', 'target', 'loss_mask', 'attention_mask'] if args.xl_dataset else ['text', 'loss_mask']
     datatype = torch.int64
 
     # Broadcast data.
@@ -288,7 +288,7 @@ def get_batch(data_iterator, args, timers):
     timers('data loader').stop()
     data_b = mpu.broadcast_data(keys, data, datatype)
     # Unpack.
-    if args.transformer_xl:
+    if args.xl_dataset:
         tokens = data_b['text'].long()
         labels = data_b['target'].long()
         attention_mask = data_b['attention_mask'].float()
@@ -309,7 +309,7 @@ def get_batch(data_iterator, args, timers):
         args.reset_attention_mask,
         loss_mask=loss_mask,
         attention_mask=attention_mask,
-        transformer_xl=args.transformer_xl,
+        transformer_xl=args.xl_dataset,
         mem_length=args.mem_length)
     # Convert
     if args.fp16:
@@ -318,7 +318,9 @@ def get_batch(data_iterator, args, timers):
     return tokens, labels, loss_mask, attention_mask, position_ids
 
 
-# last_tokens = None
+tokenizer = None
+
+
 def forward_step(data_iterator, model, args, timers, mems):
     """Forward step."""
 
@@ -334,7 +336,8 @@ def forward_step(data_iterator, model, args, timers, mems):
     #             breakpoint()
     # last_tokens = tokens[:, -1].tolist()
     timers('batch generator').stop()
-
+    if torch.distributed.get_rank() == 0:
+        breakpoint()
     # Forward model.
     logits, *mems = model(tokens, position_ids, attention_mask, *mems)
     losses = mpu.vocab_parallel_cross_entropy(logits.contiguous().float(),
@@ -650,7 +653,7 @@ def get_train_val_test_data(args):
     """Load the data on rank zero and boradcast number of tokens to all GPUS."""
 
     (train_data, val_data, test_data) = (None, None, None)
-
+    global tokenizer
     # Data loader only on rank 0 of each model parallel group.
     if mpu.get_model_parallel_rank() == 0:
         if args.use_npy_data_loader:

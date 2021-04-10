@@ -143,7 +143,7 @@ def make_loaders(args):
         'seq_length': seq_length,
         'mem_length': args.mem_length,
         'lazy': args.lazy_loader,
-        'xl_style': args.transformer_xl,
+        'xl_style': args.xl_dataset,
         'delim': args.delim,
         'text_key': args.text_key,
         'label_key': 'label',

@@ -240,7 +240,7 @@ def add_data_args(parser):
     group.add_argument('--train-data', nargs='+', default=None,
                        help='Whitespace separated filenames or corpora names '
                             'for training.')
-
+    group.add_argument('--xl-dataset', action='store_true')
     group.add_argument('--use-npy-data-loader', action='store_true',
                        help='Use the numpy data loader. If set, then'
                             'train-data-path, val-data-path, and test-data-path'

@@ -31,6 +31,7 @@ gpt_options=" \
        --train-iters 10000 \
        --resume-dataloader \
        --train-data ${2} \
+       --xl-dataset \
        --lazy-loader \
        --tokenizer-type ChineseSPTokenizer \
        --split 949,50,1 \
