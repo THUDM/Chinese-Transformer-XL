@@ -336,8 +336,6 @@ def forward_step(data_iterator, model, args, timers, mems):
     #             breakpoint()
     # last_tokens = tokens[:, -1].tolist()
     timers('batch generator').stop()
-    if torch.distributed.get_rank() == 0:
-        breakpoint()
     # Forward model.
     logits, *mems = model(tokens, position_ids, attention_mask, *mems)
     losses = mpu.vocab_parallel_cross_entropy(logits.contiguous().float(),
