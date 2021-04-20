@@ -295,8 +295,10 @@ def load_checkpoint(model, optimizer, lr_scheduler, args, load_optimizer_states=
 
     if args.deepspeed:
 
-        checkpoint_name, sd = model.load_checkpoint(load_dir, iteration, load_optimizer_states=not args.no_load_optim)
-        if "client_lr_scheduler" in sd:
+        checkpoint_name, sd = model.load_checkpoint(load_dir, iteration,
+                                                    load_optimizer_states=not args.no_load_optim and not args.finetune,
+                                                    load_lr_scheduler_states=not args.finetune)
+        if not args.finetune and "client_lr_scheduler" in sd:
             lr_scheduler.load_state_dict(sd["client_lr_scheduler"])
             print_rank_0("Load lr scheduler state")
         if checkpoint_name is None:
