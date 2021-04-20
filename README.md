@@ -62,7 +62,7 @@ bash scripts/generate_text.sh ./txl-2.9B
 
 ## Finetune
 
-模型的finetune主要使用DeepSpeed。首先在`scripts/ds_finetune_gpt_2.9B.sh`中修改`NUM_WORKERS`和`NUM_GPUS_PER_WORKER`
+模型的finetune基于使用DeepSpeed。首先在`scripts/ds_finetune_gpt_2.9B.sh`中修改`NUM_WORKERS`和`NUM_GPUS_PER_WORKER`
 为使用的节点数目和每个节点的GPU数量。如果使用多机训练的话，还要修改`HOST_FILE_PATH`
 为hostfile的路径（DeepSpeed使用[OpenMPI风格的hostfile](https://www.deepspeed.ai/getting-started/#resource-configuration-multi-node)
 ）。
@@ -75,4 +75,6 @@ bash scripts/ds_finetune_gpt_2.9B.sh ./txl-2.9B ./data.json
 
 其中`./txl-2.9B`为checkpoint目录。`./data.json`为finetune数据，格式为[jsonl文件](https://jsonlines.org/)
 ，每条数据的格式为`{"prompt": ..,  "text": ...}`。其中prompt为生成的context，text为生成的内容。
+
+如果你在finetune的遇到了OOM错误（一般是因为GPU数量或者显存不足导致的），可以尝试在[scripts/ds_config_2.9B_finetune.json](scripts/ds_config_2.9B_finetune.json)的`zero_optimization`部分添加`"cpu_offload": true`，来开启[ZeRO-Offload](https://www.deepspeed.ai/tutorials/zero-offload/) 以减少显存消耗。
 ## 引用
