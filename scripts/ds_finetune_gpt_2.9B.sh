@@ -30,7 +30,7 @@ gpt_options=" \
        --save-interval 2000 \
        --train-iters 10000 \
        --resume-dataloader \
-       --train-data xinhua \
+       --train-data ${2} \
        --xl-dataset \
        --lazy-loader \
        --tokenizer-type ChineseSPTokenizer \
