@@ -15,8 +15,9 @@
 """several datasets with preset arguments"""
 from .datasets import json_dataset, csv_dataset
 import os
+import re
 import json
-import random
+import csv
 import tqdm
 from multiprocessing import Queue, Process
 from torch.utils import data
@@ -99,11 +100,12 @@ class PromptDataset(data.Dataset):
 
 
 class DataReader:
+    is_json = True
     PATH = None
     assert_str = None
 
-    @staticmethod
-    def tokenize_worker(input, output, reader, tokenizer, tokenize):
+    @classmethod
+    def tokenize_worker(cls, input, output, reader, tokenizer, tokenize):
         raise NotImplementedError
 
     def __init__(self, writers, tokenizer=None, tokenize=False, **kwargs):
@@ -123,12 +125,24 @@ class DataReader:
                               args=(task_queue, done_queue, type(self), tokenizer, tokenize))
             process.start()
             processes.append(process)
-        for path in paths:
-            with open(path) as file:
-                for row in tqdm.tqdm(file):
-                    task_queue.put(row)
-        for i in range(len(processes)):
-            task_queue.put('STOP')
+        csv.field_size_limit(10000000)
+
+        def read_input_to_queue():
+            for path in paths:
+                print(f"Start reading {path}")
+                with open(path) as file:
+                    if self.is_json:
+                        for row in tqdm.tqdm(file):
+                            task_queue.put(row)
+                    else:
+                        reader = csv.reader(file)
+                        for item in reader:
+                            task_queue.put(item)
+            for _ in range(len(processes)):
+                task_queue.put('STOP')
+
+        process = Process(target=read_input_to_queue)
+        process.start()
         count = len(processes)
         progress_bar = tqdm.tqdm()
         while True:
@@ -169,11 +183,14 @@ class DataReader:
 
 
 class PromptReader(DataReader):
-    @staticmethod
-    def tokenize_worker(input, output, reader, tokenizer, tokenize):
+    @classmethod
+    def tokenize_worker(cls, input, output, reader, tokenizer, tokenize):
         for row in iter(input.get, 'STOP'):
-            data = json.loads(row)
-            prompts, texts = reader.process_line(data, tokenizer, tokenize)
+            if cls.is_json:
+                item = json.loads(row)
+            else:
+                item = row
+            prompts, texts = reader.process_line(item, tokenizer, tokenize)
             for prompt, text in zip(prompts, texts):
                 output.put((prompt, text))
         output.put("COMPLETE")
@@ -211,8 +228,8 @@ class KeyReader(DataReader):
             text_mask.append(len(content))
         return (summary, summary_mask), (text, text_mask)
 
-    @staticmethod
-    def tokenize_worker(input, output, reader, tokenizer, tokenize):
+    @classmethod
+    def tokenize_worker(cls, input, output, reader, tokenizer, tokenize):
         for row in iter(input.get, 'STOP'):
             data = json.loads(row)
             summary, content = reader.process_line(data, tokenizer, tokenize)
@@ -332,6 +349,38 @@ class wikipedia(PromptReader):
         return [prompt], [text]
 
 
+class XinhuaNews(PromptReader):
+    is_json = False
+    PATH = '/root/data/xinhua'
+    assert_str = "make sure to set PATH for xinhua data_utils/corpora.py"
+
+    @classmethod
+    def process_line(cls, item, tokenizer, tokenize):
+        title, content = item
+
+        def clean_html(raw_html):
+            pattern = r'<.*?>'
+            clean_text = re.sub(pattern, '', raw_html)
+            return clean_text
+
+        def clean_text(text):
+            text = text.replace("\u3000", " ")
+            return text
+
+        prompts, texts = [], []
+        title = clean_text(clean_html(title))
+        content = clean_text(clean_html(content))
+        if len(content) > 100:
+            prompts.append("标题：" + title + " 内容：")
+            texts.append(content)
+            if len(title) > 1:
+                prompts.append("内容：")
+                texts.append(content + " 标题：" + title)
+        prompts = [cls.process_sample(prompt, tokenizer, tokenize) for prompt in prompts]
+        texts = [cls.process_sample(content, tokenizer, tokenize) for text in texts]
+        return prompts, texts
+
+
 def get_finetune_dataset(path):
     class FinetuneDataset(PromptReader):
         PATH = path
@@ -353,5 +402,6 @@ NAMED_CORPORA = {
     'webtext': webtext,
     "zhihu": zhihu,
     "zhidao": zhidao,
-    "baike": baike
+    "baike": baike,
+    "xinhua": XinhuaNews
 }
