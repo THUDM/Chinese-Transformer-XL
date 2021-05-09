@@ -2,14 +2,14 @@
 
 # Change for multinode config
 
-NUM_WORKERS=4
+NUM_WORKERS=1
 NUM_GPUS_PER_WORKER=8
 MP_SIZE=1
 
 script_path=$(realpath $0)
 script_dir=$(dirname $script_path)
 
-OPTIONS_NCCL="NCCL_DEBUG=info NCCL_IB_DISABLE=0 NCCL_SOCKET_IFNAME=ib0 NCCL_NET_GDR_LEVEL=0"
+OPTIONS_NCCL="NCCL_DEBUG=info NCCL_IB_DISABLE=0 NCCL_NET_GDR_LEVEL=2"
 HOST_FILE_PATH="/root/code/config/hostfile"
 
 
