@@ -100,7 +100,7 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
                                                     gather_output=False,
                                                     init_method=init_method)
         if relative_encoding:
-            self.relative = ColumnParallelLinear(hidden_size, hidden_size, gather_output=False,
+            self.relative = ColumnParallelLinear(hidden_size, self.hidden_size_per_partition, gather_output=False,
                                                  init_method=init_method)
         # Dropout. Note that for a single iteration, this layer will generate
         # different outputs on different number of parallel partitions but
