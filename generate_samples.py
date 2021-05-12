@@ -53,7 +53,7 @@ def get_model(args):
                       max_memory_length=args.mem_length,
                       checkpoint_activations=args.checkpoint_activations,
                       checkpoint_num_layers=args.checkpoint_num_layers,
-                      parallel_output=True,
+                      parallel_output=False,
                       relative_encoding=args.transformer_xl)
 
     if mpu.get_data_parallel_rank() == 0:
@@ -281,7 +281,7 @@ def sample_sequence(model, tokenizer, context_tokens_tensor, context_length, arg
         tokens = torch.cat((tokens, prev.view(1, 1)), dim=1)
         context_length += 1
         counter += 1
-        if not args.hierarchical and mpu.get_model_parallel_rank() == 0 and counter % 16 == 0:
+        if mpu.get_model_parallel_rank() == 0 and counter % 16 == 0:
             output_tokens_list = tokens.view(-1).contiguous()
             decode_tokens = tokenizer.DecodeIds(output_tokens_list.tolist())
             if mpu.get_model_parallel_rank() == 0 and (counter % 128 == 0 or is_end):
@@ -303,8 +303,6 @@ def read_context(tokenizer, args, output):
             if raw_text == "stop":
                 terminate_runs = 1
                 break
-            if args.hierarchical:
-                raw_text = "Summary: " + raw_text
             output.write(raw_text)
             context_tokens = tokenizer.EncodeAsIds(raw_text).tokenization
             context_length = len(context_tokens)
@@ -355,35 +353,14 @@ def generate_samples(model, tokenizer, args, device):
             start_time = time.time()
             output_tokens_list, _ = sample_sequence(model, tokenizer, context_tokens_tensor, context_length, args,
                                                     device)
-            if args.hierarchical:
-                eop_token = tokenizer.get_command('eop').Id
-                if output_tokens_list[-1] == eop_token:
-                    output_tokens_list = output_tokens_list[:-1]
+            if mpu.get_model_parallel_rank() == 0:
+                os.system('clear')
+                print("\nTaken time {:.2f}\n".format(time.time() - start_time), flush=True)
+                print("\nContext:", raw_text, flush=True)
                 decode_tokens = tokenizer.DecodeIds(output_tokens_list.tolist())
-                trim_decode_tokens = decode_tokens[9:]
-                print("Summary:", trim_decode_tokens)
-                keys = nltk.tokenize.sent_tokenize(trim_decode_tokens)
-                context, mems = "", []
-                for i, key in enumerate(keys):
-                    if i > 0 and not context.endswith(" "):
-                        key = " " + key
-                    context_tokens = tokenizer.EncodeAsIds(key).tokenization
-                    context_length = len(context_tokens)
-                    context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-                    output_tokens_list, mems = sample_sequence(model, tokenizer, context_tokens_tensor, context_length,
-                                                               args, device, end_token=eop_token, mems=mems)
-                    decode_tokens = tokenizer.DecodeIds(output_tokens_list.tolist())
-                    context += decode_tokens
-                print(context)
-            else:
-                if mpu.get_model_parallel_rank() == 0:
-                    os.system('clear')
-                    print("\nTaken time {:.2f}\n".format(time.time() - start_time), flush=True)
-                    print("\nContext:", raw_text, flush=True)
-                    decode_tokens = tokenizer.DecodeIds(output_tokens_list.tolist())
-                    trim_decode_tokens = decode_tokens[len(raw_text):]
-                    print("\nGPT2:", trim_decode_tokens, flush=True)
-                    output.write(trim_decode_tokens + "\n")
+                trim_decode_tokens = decode_tokens[len(raw_text):]
+                print("\nGPT2:", trim_decode_tokens, flush=True)
+                output.write(trim_decode_tokens + "\n")
 
             torch.distributed.barrier(group=mpu.get_model_parallel_group())
 
