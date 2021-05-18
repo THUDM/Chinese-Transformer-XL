@@ -160,6 +160,8 @@ def add_training_args(parser):
                        help='Path to a directory containing a model checkpoint.')
     group.add_argument('--no-load-optim', action='store_true',
                        help='Do not load optimizer when loading checkpoint.')
+    group.add_argument('--no-load-lr-scheduler', action='store_true',
+                       help='Do not load lr scheduler when loading checkpoint.')
     group.add_argument('--no-load-rng', action='store_true',
                        help='Do not load rng state when loading checkpoint.')
     group.add_argument('--finetune', action='store_true',

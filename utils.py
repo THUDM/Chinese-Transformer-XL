@@ -296,9 +296,9 @@ def load_checkpoint(model, optimizer, lr_scheduler, args, load_optimizer_states=
     if args.deepspeed:
 
         checkpoint_name, sd = model.load_checkpoint(load_dir, iteration,
-                                                    load_optimizer_states=not args.no_load_optim and not args.finetune,
-                                                    load_lr_scheduler_states=not args.finetune)
-        if not args.finetune and "client_lr_scheduler" in sd:
+                                                    load_optimizer_states=not args.no_load_optim,
+                                                    load_lr_scheduler_states=not args.no_load_lr_scheduler)
+        if not args.no_load_lr_scheduler and "client_lr_scheduler" in sd:
             lr_scheduler.load_state_dict(sd["client_lr_scheduler"])
             print_rank_0("Load lr scheduler state")
         if checkpoint_name is None:
@@ -330,11 +330,11 @@ def load_checkpoint(model, optimizer, lr_scheduler, args, load_optimizer_states=
             exit()
 
         # Optimizer.
-        if not release and not args.finetune and not args.no_load_optim:
+        if not release:
             try:
-                if optimizer is not None and load_optimizer_states:
+                if not args.no_load_optim and optimizer is not None and load_optimizer_states:
                     optimizer.load_state_dict(sd['optimizer'])
-                if lr_scheduler is not None:
+                if not args.no_load_lr_scheduler and lr_scheduler is not None:
                     lr_scheduler.load_state_dict(sd['lr_scheduler'])
             except KeyError:
                 print_rank_0('Unable to load optimizer from checkpoint {}, exiting. '

@@ -26,7 +26,6 @@ from .layers import ColumnParallelLinear
 from .layers import RowParallelLinear
 from .mappings import gather_from_model_parallel_region
 
-
 from .random import checkpoint
 from .random import get_cuda_rng_tracker
 
@@ -79,6 +78,7 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
         b: batch size
         s: sequence length
     """
+
     def __init__(self, hidden_size, num_attention_heads,
                  attention_dropout_prob, output_dropout_prob,
                  init_method, output_layer_init_method=None, relative_encoding=False):
@@ -95,12 +95,12 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
                                                         world_size)
         self.relative_encoding = relative_encoding
         # Strided linear layer.
-        self.query_key_value = ColumnParallelLinear(hidden_size, 3*hidden_size,
+        self.query_key_value = ColumnParallelLinear(hidden_size, 3 * hidden_size,
                                                     stride=3,
                                                     gather_output=False,
                                                     init_method=init_method)
         if relative_encoding:
-            self.relative = ColumnParallelLinear(hidden_size, self.hidden_size_per_partition, gather_output=False,
+            self.relative = ColumnParallelLinear(hidden_size, hidden_size, gather_output=False,
                                                  init_method=init_method)
         # Dropout. Note that for a single iteration, this layer will generate
         # different outputs on different number of parallel partitions but
@@ -245,9 +245,10 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
 
 @torch.jit.script
 def gelu_impl(x):
-     """OpenAI's gelu implementation."""
-     return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x *
-                                        (1.0 + 0.044715 * x * x)))
+    """OpenAI's gelu implementation."""
+    return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x *
+                                       (1.0 + 0.044715 * x * x)))
+
 
 def gelu(x):
     return gelu_impl(x)
@@ -279,12 +280,12 @@ class GPT2ParallelMLP(torch.nn.Module):
         if output_layer_init_method is None:
             output_layer_init_method = init_method
         # Project to 4h.
-        self.dense_h_to_4h = ColumnParallelLinear(hidden_size, 4*hidden_size,
+        self.dense_h_to_4h = ColumnParallelLinear(hidden_size, 4 * hidden_size,
                                                   gather_output=False,
                                                   init_method=init_method)
         # Project back to h.
         self.dense_4h_to_h = RowParallelLinear(
-            4*hidden_size,
+            4 * hidden_size,
             hidden_size,
             input_is_parallel=True,
             init_method=output_layer_init_method)
@@ -329,6 +330,7 @@ class GPT2ParallelTransformerLayer(torch.nn.Module):
                                   mlp output) initialization. If None,
                                   use `init_method`.
     """
+
     def __init__(self,
                  hidden_size,
                  num_attention_heads,
@@ -390,6 +392,7 @@ class GPT2ParallelTransformerLayer(torch.nn.Module):
 
 def unscaled_init_method(sigma):
     """Init method based on N(0, sigma)."""
+
     def init_(tensor):
         return torch.nn.init.normal_(tensor, mean=0.0, std=sigma)
 
@@ -399,6 +402,7 @@ def unscaled_init_method(sigma):
 def scaled_init_method(sigma, num_layers):
     """Init method based on N(0, sigma/sqrt(2*num_layers)."""
     std = sigma / math.sqrt(2.0 * num_layers)
+
     def init_(tensor):
         return torch.nn.init.normal_(tensor, mean=0.0, std=std)
 
@@ -439,6 +443,7 @@ class GPT2ParallelTransformer(torch.nn.Module):
                                             scaling for the output weights (
                                             output of self attention and mlp).
     """
+
     def __init__(self,
                  num_layers,
                  hidden_size,
@@ -463,7 +468,7 @@ class GPT2ParallelTransformer(torch.nn.Module):
         output_layer_init_method = None
         if use_scaled_init_for_output_weights:
             output_layer_init_method = scaled_init_method(init_method_std,
-                                                      num_layers)
+                                                          num_layers)
         # Embeddings dropout
         self.embedding_dropout = torch.nn.Dropout(embedding_dropout_prob)
         self.relative_encoding = relative_encoding
@@ -541,6 +546,7 @@ class GPT2ParallelTransformer(torch.nn.Module):
             mem_layers = [hidden_states.detach()]
         else:
             mem_layers = []
+
         def custom(start, end):
             def custom_forward(*inputs):
                 layers_ = self.layers[start:end]
@@ -555,6 +561,7 @@ class GPT2ParallelTransformer(torch.nn.Module):
                     if self.max_memory_length > 0:
                         mem_layers.append(x_.detach())
                 return x_
+
             return custom_forward
 
         if self.checkpoint_activations:
@@ -596,7 +603,7 @@ class GPT2ParallelTransformer(torch.nn.Module):
                 if new_memory_length <= query_length:
                     new_mems.append(hiddens[i][:, -new_memory_length:])
                 else:
-                    new_mems.append(torch.cat((mems[i][:, -new_memory_length+query_length:], hiddens[i]), dim=1))
+                    new_mems.append(torch.cat((mems[i][:, -new_memory_length + query_length:], hiddens[i]), dim=1))
         return new_mems
 
 
@@ -625,6 +632,7 @@ class BertParallelSelfAttention(torch.nn.Module):
         b: batch size
         s: sequence length
     """
+
     def __init__(self, hidden_size, num_attention_heads,
                  dropout_prob, output_parallel=False,
                  init_method=init.xavier_normal_):
@@ -642,7 +650,7 @@ class BertParallelSelfAttention(torch.nn.Module):
         self.num_attention_heads_per_partition = divide(num_attention_heads,
                                                         world_size)
         # Strided linear layer.
-        self.query_key_value = ColumnParallelLinear(hidden_size, 3*hidden_size,
+        self.query_key_value = ColumnParallelLinear(hidden_size, 3 * hidden_size,
                                                     stride=3,
                                                     gather_output=False,
                                                     init_method=init_method)
@@ -659,7 +667,6 @@ class BertParallelSelfAttention(torch.nn.Module):
                 checkpoint = deepspeed.checkpointing.checkpoint
         except ImportError:
             pass
-
 
     def _transpose_for_scores(self, tensor):
         """Transpose a 3D tensor [b, s, np*hn] into a 4D tensor with
@@ -686,8 +693,8 @@ class BertParallelSelfAttention(torch.nn.Module):
 
         # Raw attention scores. [b, np, s, s]
         norm_factor = math.sqrt(math.sqrt(self.hidden_size_per_attention_head))
-        attention_scores = torch.matmul(query_layer/norm_factor,
-                                        key_layer.transpose(-1, -2)/norm_factor)
+        attention_scores = torch.matmul(query_layer / norm_factor,
+                                        key_layer.transpose(-1, -2) / norm_factor)
         # Apply the attention mask.
         attention_scores += attention_mask
 
@@ -720,6 +727,7 @@ class BertParallelSelfAttention(torch.nn.Module):
 class BertParallelTransformerOutput(torch.nn.Module):
     """The output layer used after self attention and intermediate
     parts of transformer layer."""
+
     def __init__(self, input_size, output_size, dropout_prob,
                  layernorm_epsilon=1.0e-12, input_is_parallel=False,
                  init_method=init.xavier_normal_):
@@ -771,6 +779,7 @@ class BertParallelTransformerLayer(torch.nn.Module):
                      that all biases are initialized to zero and
                      layernorm weight are initialized to one.
     """
+
     def __init__(self,
                  hidden_size,
                  intermediate_size,

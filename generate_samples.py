@@ -334,6 +334,8 @@ def read_context(tokenizer, args, output):
         context_tokens_tensor = torch.cuda.LongTensor([0] * context_length)
     torch.distributed.broadcast(context_tokens_tensor, mpu.get_model_parallel_src_rank(),
                                 group=mpu.get_model_parallel_group())
+    if mpu.get_model_parallel_rank() != 0:
+        raw_text = tokenizer.DecodeIds(context_tokens_tensor.tolist())
     return terminate_runs, raw_text, context_tokens_tensor, context_length
 
 
@@ -379,8 +381,7 @@ def prepare_tokenizer(args):
     num_tokens = tokenizer.num_tokens
     before = num_tokens
     after = before
-    multiple = args.make_vocab_size_divisible_by * \
-               mpu.get_model_parallel_world_size()
+    multiple = args.make_vocab_size_divisible_by
     while (after % multiple) != 0:
         after += 1
     print_rank_0('> padded vocab (size: {}) with {} dummy '

@@ -704,7 +704,7 @@ def main():
     # Arguments.
     args = get_args()
     args.mem_length = args.mem_length if args.transformer_xl else 0
-    if args.load:
+    if args.load and not args.finetune:
         args.experiment_name = os.path.basename(os.path.normpath(args.load))
     else:
         args.experiment_name = args.experiment_name + datetime.now().strftime("%m-%d-%H-%M")
