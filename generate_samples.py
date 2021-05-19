@@ -321,7 +321,7 @@ def read_context(tokenizer, args, output):
     terminate_runs = terminate_runs_tensor[0].item()
 
     if terminate_runs == 1:
-        return terminate_runs, raw_text, None, None
+        return terminate_runs, None, None, None
 
     context_length_tensor = torch.cuda.LongTensor([context_length])
 

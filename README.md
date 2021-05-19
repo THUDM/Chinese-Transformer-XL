@@ -77,4 +77,11 @@ bash scripts/ds_finetune_gpt_2.9B.sh ./txl-2.9B ./data.json
 ，每条数据的格式为`{"prompt": ..,  "text": ...}`。其中prompt为生成的context，text为生成的内容。
 
 如果你在finetune的遇到了OOM错误（一般是因为GPU数量或者显存不足导致的），可以尝试在[scripts/ds_config_2.9B_finetune.json](scripts/ds_config_2.9B_finetune.json)的`zero_optimization`部分添加`"cpu_offload": true`，来开启[ZeRO-Offload](https://www.deepspeed.ai/tutorials/zero-offload/) 以减少显存消耗。
+
+## 模型并行
+如果你的显存大小比较有限，可以尝试使用模型并行来减少显存消耗。我们提供的模型checkpoint是在单卡上运行的。首先使用[change_mp.py](change_mp.py)来对hceckpoint进行切分
+```shell
+python change_mp.py ./txl-2.9B 2
+```
+其中2表示2路模型并行。在推理和finetune的时候，将脚本中的MP_SIZE改为2，然后使用./txl-2.9B_MP2作为运行脚本时的checkpoint路径。
 ## 引用

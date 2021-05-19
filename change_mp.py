@@ -7,10 +7,14 @@ checkpoint = sys.argv[1]
 target_mp = int(sys.argv[2])
 
 assert os.path.isdir(checkpoint)
-with open(os.path.join(checkpoint, 'latest_checkpointed_iteration.txt')) as fin:
-    iteration = int(fin.read().strip())
+iteration_file = os.path.join(checkpoint, 'latest_checkpointed_iteration.txt')
+if os.path.exists(iteration_file):
+    with open(iteration_file) as fin:
+        iteration = int(fin.read().strip())
+    checkpoint = os.path.join(checkpoint, str(iteration))
+else:
+    iteration = None
 
-checkpoint = os.path.join(checkpoint, str(iteration))
 
 filenames = os.listdir(checkpoint)
 filenames = [filename for filename in filenames if filename.startswith("mp_rank_")]
@@ -28,11 +32,12 @@ else:
     new_checkpoint = sys.argv[1] + '_MP' + sys.argv[2]
 if not os.path.exists(new_checkpoint):
     os.mkdir(new_checkpoint)
-with open(os.path.join(new_checkpoint, 'latest_checkpointed_iteration.txt'), 'w') as fout:
-    fout.write("{}\n".format(iteration))
-new_checkpoint = os.path.join(new_checkpoint, str(iteration))
-if not os.path.exists(new_checkpoint):
-    os.mkdir(new_checkpoint)
+if iteration is not None:
+    with open(os.path.join(new_checkpoint, 'latest_checkpointed_iteration.txt'), 'w') as fout:
+        fout.write("{}\n".format(iteration))
+    new_checkpoint = os.path.join(new_checkpoint, str(iteration))
+    if not os.path.exists(new_checkpoint):
+        os.mkdir(new_checkpoint)
 
 preserve_keys = [
     "lr_scheduler",
@@ -81,11 +86,11 @@ if target_mp < len(filenames):
                             target[:size_1, :], v[:size_2, :],
                             target[size_1:size_1 * 2, :], v[size_2:size_2 * 2, :],
                             target[size_1 * 2:, :], v[size_2 * 2:, :]], 0)
-                    elif 'word' in k or 'h_to_4h' in k:
+                    elif 'word' in k or 'h_to_4h' in k or 'relative' in k or "r_w_bias" in k or "r_r_bias" in k:
                         d['module'][k] = torch.cat([d['module'][k], v], 0)
                     else:
                         d['module'][k] = torch.cat([d['module'][k], v], 1)
-                if len(v.shape) == 1 and 'query_key_value' in k:
+                elif len(v.shape) == 1 and 'query_key_value' in k:
                     size_1 = d['module'][k].shape[0] // 3
                     size_2 = v.shape[0] // 3
                     target = d['module'][k]
@@ -93,8 +98,7 @@ if target_mp < len(filenames):
                         target[:size_1], v[:size_2],
                         target[size_1:size_1 * 2], v[size_2:size_2 * 2],
                         target[size_1 * 2:], v[size_2 * 2:]], 0)
-
-                if len(v.shape) == 1 and 'dense_h_to_4h' in k:
+                elif len(v.shape) == 1 and ('dense_h_to_4h' in k or "attention.relative" in k):
                     d['module'][k] = torch.cat([d['module'][k], v], 0)
         filename = os.path.join(new_checkpoint, "mp_rank_{:02d}_model_states.pt".format(i))
         torch.save(d, filename)
