@@ -25,6 +25,7 @@ from filelock import FileLock
 import torch
 
 import deepspeed
+import pathlib
 from contextlib import ExitStack
 from arguments import get_args
 from configure_data import configure_data
@@ -724,7 +725,8 @@ def main():
     model, optimizer, lr_scheduler = setup_model_and_optimizer(args)
 
     if args.load is not None:
-        args.iteration = load_checkpoint(model, optimizer, lr_scheduler, args)
+        with FileLock(os.path.join(pathlib.Path.home(), "checkpoint_lock"), timeout=-1):
+            args.iteration = load_checkpoint(model, optimizer, lr_scheduler, args)
     else:
         args.iteration = 0
     torch.distributed.barrier()
