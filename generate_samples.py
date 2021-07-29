@@ -292,11 +292,12 @@ def sample_sequence(model, tokenizer, context_tokens_tensor, context_length, arg
     return output_tokens_list, mems
 
 
-def read_context(tokenizer, args, output):
+def read_context(tokenizer, args, output, raw_text=None):
     terminate_runs, skip_run = 0, 0
     if mpu.get_model_parallel_rank() == 0:
         while True:
-            raw_text = input("\nContext prompt (stop to exit) >>> ")
+            if not raw_text:
+                raw_text = input("\nContext prompt (stop to exit) >>> ")
             if not raw_text:
                 print('Prompt should not be empty!')
                 continue
@@ -346,10 +347,18 @@ def generate_samples(model, tokenizer, args, device):
         os.makedirs(output_path)
     output_path = os.path.join(output_path, f"sample-{datetime.now().strftime('%m-%d-%H-%M')}.txt")
     with torch.no_grad(), open(output_path, "w") as output:
+        input_file = None
+        if args.test_data_path is not None:
+            input_file = open(args.test_data_path)
         while True:
             torch.distributed.barrier(group=mpu.get_model_parallel_group())
-
-            terminate_runs, raw_text, context_tokens_tensor, context_length = read_context(tokenizer, args, output)
+            raw_text = None
+            if input_file is not None:
+                raw_text = input_file.readline().strip()
+                if not raw_text:
+                    return
+            terminate_runs, raw_text, context_tokens_tensor, context_length = read_context(tokenizer, args, output,
+                                                                                           raw_text=raw_text)
             if terminate_runs == 1:
                 return
             start_time = time.time()
