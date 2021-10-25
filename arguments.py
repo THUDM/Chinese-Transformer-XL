@@ -251,7 +251,7 @@ def add_data_args(parser):
                        help='path to the training data')
     group.add_argument('--val-data-path', type=str, default='',
                        help='path to the validation data')
-    group.add_argument('--test-data-path', type=str, default='',
+    group.add_argument('--test-data-path', type=str, default=None,
                        help='path to the test data')
     group.add_argument('--input-data-sizes-file', type=str, default='sizes.txt',
                        help='the filename containing all the shards sizes')
