@@ -43,6 +43,7 @@ pip install -r requirements.txt
 ```shell
 DS_BUILD_OPS=1 pip install deepspeed
 ```
+也可以使用我们提供的[Docker镜像](https://github.com/THUDM/GLM#docker-image)
 
 ## 推理
 
